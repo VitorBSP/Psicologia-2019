@@ -1,0 +1,46 @@
+---
+title: "Tabelas de Contingência"
+output: html_document
+---
+# Tabelas de Contingência códigos
+`# Carregamento `
+```{r setup,,message=F}
+library('titanic')
+library('tidyverse')
+library('janitor')
+usethis::use_git()
+usethis::use_github()
+
+
+```
+#### Tabela 2x2
+
+
+```{r,message=F}
+df=titanic_train
+# Usando o pacote janitor
+df %>%
+    group_by(Sex,Survived) %>% 
+    summarise(n=n())   %>% 
+    spread(Survived, n) %>% 
+    rename(Surv_N=`0`,Surv_Y=`1`) %>% 
+    adorn_totals("row") %>% 
+    adorn_totals("col") %>%
+    ungroup() 
+
+# Sem usar o janitor
+
+t=df %>%
+    group_by(Sex,Survived) %>% 
+    summarise(n=n())   %>% 
+    spread(Survived, n) %>% 
+    rename(Surv_N=`0`,Surv_Y=`1`) %>% 
+    ungroup() 
+t %>% 
+  select(-Sex) %>% 
+  mutate(rowsum = rowSums(.),colsum=colSums(.)) # quase finalizado 
+  
+
+   
+```
+
