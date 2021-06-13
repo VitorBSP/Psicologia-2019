@@ -38,7 +38,7 @@ t=df %>%
     ungroup() 
 t %>% 
   select(-Sex) %>% 
-  # mutate(rowsum = rowSums(.),colsum=colSums(.)) asojdasodioasd
+  mutate(rowsum = rowSums(.),colsum=colSums(.)) 
   
 
    
