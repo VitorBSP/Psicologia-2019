@@ -8,7 +8,7 @@ editor_options:
 # Tabelas de Contingência códigos
 
 ```{r setup,,message=F}
-library('titanic')
+
 library('tidyverse')
 library('janitor')
 
@@ -36,17 +36,8 @@ df=df |>
   
 # Só fiz recode das que queria dar uma pequena explorada em um primeiro momento
 
-# ESSA TABELA AQUI TA USANDO O DF TITANIC
-# Usando o pacote janitor
-df |> 
-    group_by(Sex,Survived) |>  
-    summarise(n=n())   |>  
-    spread(Survived, n)   
-    rename(Surv_N=`0`,Surv_Y=`1`) |>  
-    adorn_totals("row") |>  
-    adorn_totals("col") |> 
-    ungroup() 
-   
+
+
 ```
 
 
