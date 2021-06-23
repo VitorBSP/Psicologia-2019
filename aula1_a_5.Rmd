@@ -98,6 +98,7 @@ df |>
 ```
 
 ```{r tabelas de contingência 2v}
+
 freq_table2=function(df,v1,v2){
   df |> 
  group_by({{v1}},{{v2}}) |>  
