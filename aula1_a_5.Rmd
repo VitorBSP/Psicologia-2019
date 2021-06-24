@@ -109,7 +109,6 @@ freq_table2=function(df,v1,v2){
     ungroup() 
 }
 
-
  
 ```
 
