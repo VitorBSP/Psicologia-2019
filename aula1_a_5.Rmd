@@ -1,49 +1,143 @@
 ---
-title: "Tabelas de Contingência"
-output: 
-  bookdown::html_document2:
+title: "Análise de evasão dos cursos de Psicologia no Brasil"
+author: "Alisson Rosa Pereira, Caroline Cogo Carneosso, Vítor Bernardo Silveira Pereira"
+date: "08/07/2021"
+header-includes:
+   - \usepackage[brazil]{babel}
+geometry: margin=2cm
+output:
+  bookdown::pdf_document2:
 editor_options:
   chunk_output_type: console
 ---
-# Tabelas de Contingência códigos
 
-```{r setup,,message=F}
+```{r,comments,include=F}
+# Se colocar - \usepackage{floatrow}
+   # - \floatsetup[figure]{capposition=top} no in
+# \footnote{"texto"} para colocar fonte no latex, temos que colocar fonte em todas as tabelas 
+```
+
+```{r setup,,include=F,}
 
 library('tidyverse')
 library('janitor')
+library('kableExtra')
+library('cowplot')
+knitr::opts_chunk$set(echo=FALSE,message=F,warning=F,fig.pos = 'H',fig.align = 'center',fig.width=7.8, fig.height=4.85)
 
 
 
 ```
-#### Tabela 2x2
 
 
-```{r,message=F,echo=F}
+```{r,message=F,echo=F,warning=F}
 df=read_csv("ALUNO_PSICO2019.CSV")
-df=df |> 
-  filter(NU_ANO_INGRESSO==2019,TP_SITUACAO!="7") |> 
-  mutate(NU_IDADE=as.factor(NU_IDADE)) |> 
-  mutate_if(is.double,as.factor) |> 
-  mutate(NU_IDADE=as.double(NU_IDADE)) |> 
-  select(-X1,-IN_INGRESSO_CONVENIO_PECG,-IN_RESERVA_VAGAS,-IN_APOIO_SOCIAL,-CO_IES) |> 
-  rename(Turno=TP_TURNO,Sexo=TP_SEXO,Idade=NU_IDADE,Deficiencia=IN_DEFICIENCIA,Nacionalidade=TP_NACIONALIDADE,
-         Ingresso=NU_ANO_INGRESSO,Situaçao=TP_SITUACAO) |> 
-  mutate(Sexo=fct_recode(Sexo,"Feminino"="1","Masculino"="2"),
-         Turno=fct_recode(Turno,"Matutino"="1","Vespertino"="2","Noturno"="3","Integral"="4"),
-         Nacionalidade=fct_recode(Nacionalidade,"Brasileira"="1","Exterior/Naturalizado"="2","Estrangeira"="3"),
-         Situaçao=fct_collapse(Situaçao,Evadido=c("5","4"),Retido=c("2","3","6")))
- 
-  
-# Só fiz recode das que queria dar uma pequena explorada em um primeiro momento
+df = df |> 
+  filter(NU_ANO_INGRESSO==2019,TP_SITUACAO!="7") |>
+      mutate(NU_IDADE=as.integer(NU_IDADE), CO_IES= as.integer(CO_IES),
+           Idade=cut(NU_IDADE,breaks=c(15,20,25,30,65,90),
+                     include.lowest = TRUE)) |> 
+      mutate(NU_IDADE=as.character(NU_IDADE)) |> 
+      mutate_if(is.double,as.factor) |> 
+      mutate(NU_IDADE=as.double(NU_IDADE),id=as.double(NU_IDADE)) |>
+      select(Turno=TP_TURNO,Sexo=TP_SEXO,Nacionalidade=TP_NACIONALIDADE,
+             Situação=TP_SITUACAO,`Apoio social`=IN_APOIO_SOCIAL,
+             id, Idade, CO_IES, CO_UF_NASCIMENTO) |> 
+      mutate(Sexo=fct_recode(Sexo,"Feminino"="1","Masculino"="2"),
+             Turno=fct_recode(Turno,"Matutino"="1","Vespertino"="2",
+                              "Noturno"="3","Integral"="4"),
+            Nacionalidade=fct_recode(Nacionalidade,"Brasileira"="1",                              "Exterior/Naturalizado"="2","Estrangeira"="3"),
+            Situação=fct_collapse(Situação,Evadido=c("5","4"),
+                                  Retido=c("2","3","6")),
+            `Apoio social`=fct_recode(`Apoio social`,"Não"= "0","Sim"="1"))
 
-
-
+IES <- read_delim('IES.CSV',delim=",")
+IES = IES |>
+  rename(Codigo = CO_IES)
+df <- df |> 
+  inner_join(IES, by = c('CO_IES' = 'Codigo')) |>
+  mutate(Mobilidade = ifelse(CO_UF_NASCIMENTO == CO_UF, 
+                               "Mesmo estado", "Estado diferentes")) |>
+  select(-X1, -CO_UF_NASCIMENTO, -CO_IES, -CO_REGIAO, -CO_UF)
 ```
 
 
 
-```{r ead graphs,echo=FALSE}
-GGally::ggpairs(df[,-1]) #Esse gráfico é overkill, mas serve pra dar um vislumbre das variáveis
+```{r,tabelas de conting,include=F}
+#Função para gerar as tabelas de frequência para uma variavel
+freq_table=function(df,v,tit){
+  df |> 
+  count({{v}}) |> 
+  mutate(prop=prop.table(n) |> round(3)) |>
+  rename(`Frequência Absoluta`=n,`Frequência Relativa`=prop) |> 
+  adorn_totals("row") |> 
+  kable(caption=tit,align = "c") |> 
+  kable_classic(latex_options = "HOLD_position") |> 
+  footnote(general = "Elaborado pelos autores ",
+         general_title = "Fonte:",
+         footnote_as_chunk = T, title_format = c("italic"))
+}
+
+# função para gerar tabela de contig duas variáveis. tit é o titulo da tabela; se deixar o arg vazio 
+ 
+freq_table2=function(df,v1,v2,tit,marg){
+  if(missing(marg)){
+    df |> 
+      group_by({{v1}},{{v2}}) |>  
+      summarise(n=n())   |>  
+      spread({{v2}}, n) |> 
+      adorn_totals("row") |>  
+      adorn_totals("col") |> 
+      ungroup() |> 
+      kable(caption=tit,align = "c") |>
+      footnote(general = "Elaborado pelos autores ",
+         general_title = "Fonte:",
+         footnote_as_chunk = T, title_format = c("italic")) |> 
+      kable_minimal(latex_options = "HOLD_position") |> 
+      add_header_above(c(" ","Situação"=3),align ="c")
+ 
+  } else {
+    df |> 
+     group_by({{v1}},{{v2}}) |>  
+     summarise(n=n())   |>  
+     spread({{v2}}, n) |> 
+     adorn_percentages() |> 
+     ungroup() |> 
+     mutate(Retido=Retido |> round(3),Evadido=Evadido|> round(3)) |> 
+     kable(caption=tit,align = "c") |> 
+    footnote(general = "Elaborado pelos autores ",
+         general_title = "Fonte:",
+         footnote_as_chunk = T, title_format = c("italic")) |> 
+     kable_minimal(latex_options = "HOLD_position") |> 
+     add_header_above(c(" ","Situação"=2),align ="c")}
+  }
+
+
+```
+
+\section{Introdução}
+
+O Instituto Nacional de Estudos e Pesquisas Educacionais Anísio Teixeira (INEP) disponibiliza o Censo [^1] da educação superior, o qual fornece informações detalhadas sobre os cursos superiores no Brasil. O objetivo do trabalho é estudar como as variáveis selecionadas influenciam na váriavel de desfecho. Trata-se de um estudo observacional transversal, uma vez que os ingressantes são estudados em um momento específico do tempo, neste caso no ano de 2019.
+Neste relatório faremos uma breve análise sobre o curso de Psicologia das Instituições de Ensino Superior (IES), estudando a permanência dos estudantes que ingressaram no ano de 2019, utiliza-se como variáveis de estudo:
+
+Como variável de interesse tem-se a **Situação** do estudante, após o primeiro ano matriculado no ensino superior, ela é classificada em Retido e Evadido.
+
+**Turno**: Uma variável categórica nominal que indica o tipo de turno que o estudante está vinculado, sendo dividido em 4 categorias.
+
+**Sexo**: Uma variável categórica binária  que indica se o estudante é do sexo masculino ou feminino. 
+ 
+**Nacionalidade**: Uma variável categórica nominal  que indica se o aluno é Brasileiro, Exterior/Naturalizado ou Estrangeiro. 
+
+**Apoio Social** Uma variável categórica dicotômica que informa se o estudante possui ou não apoio social.
+
+**Idade** Uma variável que foi discretizada em intervalos, isto é tornando-se uma variável categórica ordinal
+
+E por último a variável **Mobilidade** que foi criada pela junção do banco de dados dos alunos com o banco das Instituições de Ensino Superior, sendo esta uma variável categórica dicotômica para verificar se os alunos são do mesmo estado da universidade ou não.
+
+Adota-se como convenção a partir de agora que todas as observações referem-se ao ano 2019. Todas as tabelas e gráficos foram elaboradas pelos autores com base nas ``r nrow(df)`` observações do banco de dados, foram selecionadas ``r ncol(df)-1`` variáveis .
+
+
+```{r ead graphs,warning=FALSE,message=FALSE}
 
 
 #função para gerar os graficos de barras
@@ -52,74 +146,171 @@ g_t=function(df,v){
   ggplot(aes({{v}})) + 
   geom_bar(aes(fill={{v}}))+
   geom_text(stat='count',aes(label=..count..),vjust=-0.5)+
-  theme_minimal()
-  }
+  theme_minimal()+
+    labs(y="Quantidade",x=df |>
+         select({{v}}) |> 
+         names(),caption = "Fonte: Elaborado pelos autores")+
+  scale_fill_brewer(palette="Set2")
+    
+}
 
-
-
-# Estudantes por sexo
-
-g_t(df,Sexo)+
-  labs(title ="Quantidade de Estudantes de Psicolocia por Sexo no Brasil em 2019",y="Quantidade")
-
-
-g_t(df,Turno)+
-  labs(title ="Quantidade de Estudantes de Psicolocia por Turno no Brasil em 2019",y="Quantidade")
-
+#Gráfico de barras duas variáveis
+g_t2=function(df,v1,v2){
 df |> 
-  ggplot(aes(x=Idade))+
-  geom_freqpoly(bins=70)
+  ggplot(aes({{v1}},fill={{v2}})) + 
+  geom_bar(position = "dodge")+
+  scale_fill_brewer(palette="Set2")+
+  theme_minimal()+
+  labs(y="Quantidade",x=df |>
+         select({{v1}}) |> 
+         names(),caption = "Fonte: Elaborado pelos autores")
+}
 
-df |> 
-  ggplot(aes(Idade))+ 
-  geom_boxplot()
+```
+
+\section{Tabelas de frequência}
+A partir dos dados, foram desenvolvidas tabelas e gráficos de frequência, para melhor compreensão e interpretação das variáveis a serem estudadas:
+
+**Situação**: 
+```{r freqsit}
+freq_table(df,Situação,"Frequência absoluta e relativa para a variável Situação.")
   
+```
+```{r barsit, fig.cap = "Gráfico de barras com os valores absolutos da variável Situação."}
+g_t(df,Situação)+
+  theme(legend.position="none")
+```
+A partir da tabela \@ref(tab:freqsit) e do gráfico \@ref(fig:barsit), verifica-se que cerca de $82,26\%$ foram retidos, ou seja continuaram no curso de Psicologia, já $17,74\%$ foram evadidos do curso.
 
+**Turno**: 
+```{r freqturno}
+freq_table(df,Turno,"Frequência absoluta e relativa para a variável Turno.")
+  
+```
+```{r barturno, fig.cap = "Gráfico de barras com os valores absolutos da variável Turno"}
+g_t(df,Turno)+
+  theme(legend.position="none")
+```
+Observa-se na  tabela \@ref(tab:freqturno) e no gráfico \@ref(fig:barturno) que aproximadamente $60\%$ dos estudantes são do turno noturno, apenas $2\%$ são do turno vespertino.
+
+**Sexo**: 
+```{r freqsexo}
+freq_table(df,Sexo,"Frequência absoluta e relativa para a variável Sexo.")  
+  
 ```
 
-```{r,tabelas de contingência 1v,echo=F}
-#Função para gerar as tabelas de frequência para uma variavel
-freq_table=function(df,v){
-  df |> 
-  count({{v}}) |> 
-  mutate(prop=prop.table(n)) |>
-  rename(Quantidade=n,Proporção=prop) |> 
-  adorn_totals("row")
-}
+```{r  barsex,fig.cap = "Gráfico de barras com os valores absolutos da variável Sexo."}
+g_t(df,Sexo)+
+  theme(legend.position="none")
+```
+Como é observado na tabela \@ref(tab:freqsexo) e no gráfico \@ref(fig:barsex), mais de $75\%$ dos alunos ingressantes são do sexo feminino.
+
+
+
+
+ 
+A tabela \@ref(tab:freqidade) e o gráfico \@ref(fig:baridade) representam a  **idade** discretizada, ou seja a quantidade de observações nos respectivos intervalos para cada idade.
+```{r freqidade}
+freq_table(df,Idade, "Frequência absoluta e relativa para a variável Idade dividida em classes.")
 ```
 
+```{r  baridade,fig.cap = "Gráfico de barras com os valores absolutos da variável Idade dividida em classes."}
+g_t(df,Idade)+
+  theme(legend.position="none")
+```
+Como existe uma grande concentração de ingressantes na faixa etária entre 15 a 20 anos, cerca de $41\%$, é construído o gráfico abaixo, o qual se refere a quantidade de alunos com a respectiva idade.
 
-```{r ????????????}
+```{r freq1520,fig.cap = "Valores Absolutos da variável Idade na faixa etaria 15 a 20 anos"}
 df |> 
-  count(as_factor(Idade)) |> 
-  ggplot(aes(n,fct_reorder(`as_factor(Idade)`,n)))+
-  geom_col()+
-  labs(x="Quantidade de observações no DF", y="Idade")
+  filter(id %in% c(15:20)) |> 
+  select(id) |>
+  mutate(id=as.factor(id)) |> 
+  g_t(id) +
+  geom_curve(aes(x = 2, y = 4000, xend = 1, yend = 700),
+  arrow = arrow(
+  length = unit(0.03, "npc"),type="open"))+
+  scale_x_discrete(breaks=seq(15,22,1))+
+  theme(legend.position="none")+
+  labs(x="Idade")+
+  draw_image(
+  "https://images.emojiterra.com/twitter/v13.0/512px/1f633.png",
+  x = 1.62, y = 3750, width = 0.6, height = 1200)
+
 ```
 
-```{r tabelas de contingência 2v}
+**Mobilidade** 
+```{r freqmob}
+df |> 
+  subset(!is.na(Mobilidade)) |>
+freq_table(Mobilidade,"Frequência absoluta e relativa para a variável Mobilidade.")
+```
 
-freq_table2=function(df,v1,v2){
-  df |> 
- group_by({{v1}},{{v2}}) |>  
-    summarise(n=n())   |>  
-    spread({{v2}}, n) |> 
-    adorn_totals("row") |>  
-    adorn_totals("col") |> 
-    ungroup() 
-}
+```{r  barmob,fig.cap = "Gráfico de barras com os valores absolutos da variável Mobilidade."}
+df |> 
+  subset(!is.na(Mobilidade)) |>
+g_t(Mobilidade)+
+  theme(legend.position="none")
+```
+Nota-se que a partir da tabela \@ref(tab:freqmob) e da figura \@ref(fig:barmob), cerca de $82\%$ dos alunos ingressaram na universidade do seu estado de origem.
+
+
+\section{Tabelas Marginais}
+Nesta seção, iremos visualizar através de tabelas , o efeito marginal das variáveis explicativas na variável de
+desfecho
+
+```{r turnosit}
+freq_table2(df,Turno,Situação,"Proporção marginal do Turno na Situação do ingressante",1)
+```
+Observando a  tabela \@ref(tab:turnosit), constata-se que o turno que mais evade é o noturno, com proximidade do matutino, já o que menos evade é o turno integral. 
+```{r sexosit}
+freq_table2(df,Sexo,Situação,"Proporção marginal do Sexo na Situação do ingressante",1)
+```
+
+Apesar de termos aproximadamente $75\%$ de mulheres ingressantes e como vimos no gráfico \@ref(fig:graphsex) existe maior retenção de estudantes do sexo feminino em valores absolutos, entretanto em termos relativos podemos notar que não há diferença significativa na permanência no curso em relação ao sexo.
+
+
+
+É observado que os ingressantes que possuem apoio social, mesmo sendo poucos, são os que possuem maior retenção. 
+
+```{r idadesit}
+freq_table2(df,Idade,Situação,"Proporção marginal da Idade na Situação do ingressante",1)
+
+```
+Em relação a taxa de permanência para a variável idade, é perceptivel na faixa etária de 65 a 90 anos uma proporção maior de evasão do que nas outras faixas etárias.
+
+```{r mobsit}
+df |> 
+  subset(!is.na(Mobilidade)) |>
+freq_table2(Mobilidade,Situação,"Proporção marginal da \"Mobilidade\" na Situação do ingressante",1)
+```
+Para estudantes de origem do mesmo estado onde está localizada a universidade, há uma taxa de evasão relativamente menor em comparação com estudantes de origem de estados diferentes.
+
+
+\section{Conclusão}
+De modo geral, para os ingressantes do curso de  Psicologia do ano de 2019, podemos notar que a maioria dos ingressantes foi do sexo feminino, mas em termos da variável de desfecho não existe uma diferença significativa na taxa de evasão em relação ao sexo. A taxa de evasão para as idades em classes só não se manteve em tornos de $80\%$ para a faixa etária de 65 a 90 anos que inclusive é a maior taxa de evasão de todos os níveis das variáveis estudadas. Para o turno do ingressante percebe-se que grande parte foi do noturno e em relação a variável de desfecho a maior taxa de permanência (retido) foi para os estudantes do turno integral.
+
+
+
+
+```{r,include=F}
+
+
+ df |> 
+  ggplot(aes(Sexo)) + 
+  geom_bar(aes(fill=Sexo))+
+  geom_text(stat='count',aes(label=..count..),vjust=-0.5)+
+  theme_minimal()+
+    labs(y="Quantidade",x=df |>
+         select(Sexo) |> 
+         names(),caption = "Fonte: Elaborado pelos autores")+
+  scale_fill_brewer(palette="Set2")
+
 
  
 ```
 
 
-
-
-
-
-
-
-
+[^1]:[Acesse o Censo aqui](https://www.gov.br/inep/pt-br/areas-de-atuacao/pesquisas-estatisticas-e-indicadores/censo-da-educacao-superior)
 
 
 
