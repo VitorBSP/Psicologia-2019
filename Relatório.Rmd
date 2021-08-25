@@ -12,9 +12,7 @@ editor_options:
 ---
 
 ```{r,comments,include=F}
-# Se colocar - \usepackage{floatrow}
-   # - \floatsetup[figure]{capposition=top} no in
-# \footnote{"texto"} para colocar fonte no latex, temos que colocar fonte em todas as tabelas 
+
 ```
 
 ```{r setup,,include=F,}
@@ -23,7 +21,11 @@ library('tidyverse')
 library('janitor')
 library('kableExtra')
 library('cowplot')
+library("tidymodels")
 knitr::opts_chunk$set(echo=FALSE,message=F,warning=F,fig.pos = 'H',fig.align = 'center',fig.width=7.8, fig.height=4.85)
+options(digits=3)
+theme_set(theme_minimal())
+scale_fill_discrete = \(...) scale_fill_brewer(... , palette="Set2")
 
 
 
@@ -31,18 +33,18 @@ knitr::opts_chunk$set(echo=FALSE,message=F,warning=F,fig.pos = 'H',fig.align = '
 
 
 ```{r,message=F,echo=F,warning=F}
-df=read_csv("ALUNO_PSICO2019.CSV")
-df = df |> 
-  filter(NU_ANO_INGRESSO==2019,TP_SITUACAO!="7") |>
+df=read_csv("https://raw.githubusercontent.com/AlissonRP/Categorical--Data/master/ALUNO_PSICO2019.csv")
+df = df %>% 
+  filter(NU_ANO_INGRESSO==2019,TP_SITUACAO!="7") %>%
       mutate(NU_IDADE=as.integer(NU_IDADE), CO_IES= as.integer(CO_IES),
            Idade=cut(NU_IDADE,breaks=c(15,20,25,30,65,90),
-                     include.lowest = TRUE)) |> 
-      mutate(NU_IDADE=as.character(NU_IDADE)) |> 
-      mutate_if(is.double,as.factor) |> 
-      mutate(NU_IDADE=as.double(NU_IDADE),id=as.double(NU_IDADE)) |>
+                     include.lowest = TRUE)) %>% 
+      mutate(NU_IDADE=as.character(NU_IDADE)) %>% 
+      mutate_if(is.double,as.factor) %>% 
+      mutate(NU_IDADE=as.double(NU_IDADE),id=as.double(NU_IDADE)) %>%
       select(Turno=TP_TURNO,Sexo=TP_SEXO,Nacionalidade=TP_NACIONALIDADE,
              Situação=TP_SITUACAO,`Apoio social`=IN_APOIO_SOCIAL,
-             id, Idade, CO_IES, CO_UF_NASCIMENTO) |> 
+             id, Idade, CO_IES, CO_UF_NASCIMENTO) %>% 
       mutate(Sexo=fct_recode(Sexo,"Feminino"="1","Masculino"="2"),
              Turno=fct_recode(Turno,"Matutino"="1","Vespertino"="2",
                               "Noturno"="3","Integral"="4"),
@@ -52,12 +54,12 @@ df = df |>
             `Apoio social`=fct_recode(`Apoio social`,"Não"= "0","Sim"="1"))
 
 IES <- read_delim('IES.CSV',delim=",")
-IES = IES |>
+IES = IES  %>% 
   rename(Codigo = CO_IES)
-df <- df |> 
-  inner_join(IES, by = c('CO_IES' = 'Codigo')) |>
+df <- df %>% 
+  inner_join(IES, by = c('CO_IES' = 'Codigo')) %>%
   mutate(Mobilidade = ifelse(CO_UF_NASCIMENTO == CO_UF, 
-                               "Mesmo estado", "Estado diferentes")) |>
+                               "Mesmo estado", "Estado diferentes")) %>%
   select(-X1, -CO_UF_NASCIMENTO, -CO_IES, -CO_REGIAO, -CO_UF)
 ```
 
@@ -66,52 +68,67 @@ df <- df |>
 ```{r,tabelas de conting,include=F}
 #Função para gerar as tabelas de frequência para uma variavel
 freq_table=function(df,v,tit){
-  df |> 
-  count({{v}}) |> 
-  mutate(prop=prop.table(n) |> round(3)) |>
-  rename(`Frequência Absoluta`=n,`Frequência Relativa`=prop) |> 
-  adorn_totals("row") |> 
-  kable(caption=tit,align = "c") |> 
-  kable_classic(latex_options = "HOLD_position") |> 
+  df %>% 
+  count({{v}}) %>% 
+  mutate(prop=prop.table(n) %>% round(3)) %>%
+  rename(`Frequência Absoluta`=n,`Frequência Relativa`=prop) %>% 
+  adorn_totals("row") %>% 
+  kable(caption=tit,align = "c") %>% 
+  kable_classic(latex_options = "HOLD_position") %>% 
   footnote(general = "Elaborado pelos autores ",
          general_title = "Fonte:",
          footnote_as_chunk = T, title_format = c("italic"))
 }
 
-# função para gerar tabela de contig duas variáveis. tit é o titulo da tabela; se deixar o arg vazio 
- 
+
 freq_table2=function(df,v1,v2,tit,marg){
   if(missing(marg)){
-    df |> 
-      group_by({{v1}},{{v2}}) |>  
-      summarise(n=n())   |>  
-      spread({{v2}}, n) |> 
-      adorn_totals("row") |>  
-      adorn_totals("col") |> 
-      ungroup() |> 
-      kable(caption=tit,align = "c") |>
+    df %>% 
+      group_by({{v1}},{{v2}}) %>%  
+      summarise(n=n())   %>%  
+      spread({{v2}}, n) %>% 
+      adorn_totals("row") %>%  
+      adorn_totals("col") %>% 
+      ungroup() %>% 
+      kable(caption=tit,align = "c") %>%
       footnote(general = "Elaborado pelos autores ",
          general_title = "Fonte:",
-         footnote_as_chunk = T, title_format = c("italic")) |> 
-      kable_minimal(latex_options = "HOLD_position") |> 
+         footnote_as_chunk = T, title_format = c("italic")) %>% 
+      kable_minimal(latex_options = "HOLD_position") %>% 
       add_header_above(c(" ","Situação"=3),align ="c")
  
   } else {
-    df |> 
-     group_by({{v1}},{{v2}}) |>  
-     summarise(n=n())   |>  
-     spread({{v2}}, n) |> 
-     adorn_percentages() |> 
-     ungroup() |> 
-     mutate(Retido=Retido |> round(3),Evadido=Evadido|> round(3)) |> 
-     kable(caption=tit,align = "c") |> 
+    df %>% 
+     group_by({{v1}},{{v2}}) %>%  
+     summarise(n=n())   %>%  
+     spread({{v2}}, n) %>% 
+     adorn_percentages() %>% 
+     ungroup() %>% 
+     mutate(Retido=Retido %>% round(3),Evadido=Evadido%>% round(3)) %>% 
+     kable(caption=tit,align = "c") %>% 
     footnote(general = "Elaborado pelos autores ",
          general_title = "Fonte:",
-         footnote_as_chunk = T, title_format = c("italic")) |> 
-     kable_minimal(latex_options = "HOLD_position") |> 
+         footnote_as_chunk = T, title_format = c("italic")) %>% 
+     kable_minimal(latex_options = "HOLD_position") %>% 
      add_header_above(c(" ","Situação"=2),align ="c")}
   }
 
+conf_table=function(fit,p,tit){
+  fit %>% 
+   p(p) %>% 
+ select(Predito=.pred_class,Observado=sit) %>%
+    group_by(Predito,Observado) %>% 
+     summarise(n=n())   %>%  
+      spread(Observado, n) %>% 
+      adorn_totals("col") %>%  
+  kable(caption=tit,align = "c") %>%
+      footnote(general = "Elaborado pelos autores ",
+         general_title = "Fonte:",
+         footnote_as_chunk = T, title_format = c("italic")) %>% 
+      kable_minimal(latex_options = "HOLD_position") %>% 
+    add_header_above(c(" ","Observado"=3),align ="c")
+ 
+}
 
 ```
 
@@ -142,13 +159,13 @@ Adota-se como convenção a partir de agora que todas as observações referem-s
 
 #função para gerar os graficos de barras
 g_t=function(df,v){
-  df |> 
+  df %>% 
   ggplot(aes({{v}})) + 
   geom_bar(aes(fill={{v}}))+
   geom_text(stat='count',aes(label=..count..),vjust=-0.5)+
   theme_minimal()+
-    labs(y="Quantidade",x=df |>
-         select({{v}}) |> 
+    labs(y="Quantidade",x=df %>%
+         select({{v}}) %>% 
          names(),caption = "Fonte: Elaborado pelos autores")+
   scale_fill_brewer(palette="Set2")
     
@@ -156,13 +173,13 @@ g_t=function(df,v){
 
 #Gráfico de barras duas variáveis
 g_t2=function(df,v1,v2){
-df |> 
+df %>% 
   ggplot(aes({{v1}},fill={{v2}})) + 
   geom_bar(position = "dodge")+
   scale_fill_brewer(palette="Set2")+
   theme_minimal()+
-  labs(y="Quantidade",x=df |>
-         select({{v1}}) |> 
+  labs(y="Quantidade",x=df %>%
+         select({{v1}}) %>% 
          names(),caption = "Fonte: Elaborado pelos autores")
 }
 
@@ -231,10 +248,10 @@ g_t(df,Idade)+
 Como existe uma grande concentração de ingressantes na faixa etária entre 15 a 20 anos, cerca de $41\%$, é construído o gráfico abaixo, o qual se refere a quantidade de alunos com a respectiva idade.
 
 ```{r freq1520,fig.cap = "Valores Absolutos da variável Idade na faixa etaria 15 a 20 anos"}
-df |> 
-  filter(id %in% c(15:20)) |> 
-  select(id) |>
-  mutate(id=as.factor(id)) |> 
+df %>% 
+  filter(id %in% c(15:20)) %>% 
+  select(id) %>%
+  mutate(id=as.factor(id)) %>% 
   g_t(id) +
   geom_curve(aes(x = 2, y = 4000, xend = 1, yend = 700),
   arrow = arrow(
@@ -250,14 +267,14 @@ df |>
 
 **Mobilidade** 
 ```{r freqmob}
-df |> 
-  subset(!is.na(Mobilidade)) |>
+df %>% 
+  subset(!is.na(Mobilidade)) %>%
 freq_table(Mobilidade,"Frequência absoluta e relativa para a variável Mobilidade.")
 ```
 
 ```{r  barmob,fig.cap = "Gráfico de barras com os valores absolutos da variável Mobilidade."}
-df |> 
-  subset(!is.na(Mobilidade)) |>
+df %>% 
+  subset(!is.na(Mobilidade)) %>%
 g_t(Mobilidade)+
   theme(legend.position="none")
 ```
@@ -316,14 +333,14 @@ Vemos que a faixa etária 15 a 20 anos possue maior retenção em valor absoluto
 
 **Mobilidade e Situação**
 ```{r freqsmob}
-df |> 
-  subset(!is.na(Mobilidade)) |>
+df %>% 
+  subset(!is.na(Mobilidade)) %>%
 freq_table2(Mobilidade,Situação,"Tabela de contingência com os valores absolutos da variável Mobilidade, considerando a variável de desfecho.")
 ```
 
 ```{r graphmob,fig.cap = "Gráfico de barras para o Mobilidade dos ingressantes de acordo com a variável de desfecho."}
-df |> 
-  subset(!is.na(Mobilidade)) |>
+df %>% 
+  subset(!is.na(Mobilidade)) %>%
 g_t2(Mobilidade,Situação)
 ```
 
@@ -360,8 +377,8 @@ freq_table2(df,Idade,Situação,"Proporção marginal da Idade na Situação do 
 Em relação a taxa de permanência para a variável idade, é perceptivel na faixa etária de 65 a 90 anos uma proporção maior de evasão do que nas outras faixas etárias.
 
 ```{r mobsit}
-df |> 
-  subset(!is.na(Mobilidade)) |>
+df %>% 
+  subset(!is.na(Mobilidade)) %>%
 freq_table2(Mobilidade,Situação,"Proporção marginal da \"Mobilidade\" na Situação do ingressante",1)
 ```
 Para estudantes de origem do mesmo estado onde está localizada a universidade, há uma taxa de evasão relativamente menor em comparação com estudantes de origem de estados diferentes.
@@ -376,19 +393,245 @@ De modo geral, para os ingressantes do curso de  Psicologia do ano de 2019, pode
 ```{r,include=F}
 
 
- df |> 
+ df %>% 
   ggplot(aes(Sexo)) + 
   geom_bar(aes(fill=Sexo))+
   geom_text(stat='count',aes(label=..count..),vjust=-0.5)+
   theme_minimal()+
-    labs(y="Quantidade",x=df |>
-         select(Sexo) |> 
+    labs(y="Quantidade",x=df %>%
+         select(Sexo) %>% 
          names(),caption = "Fonte: Elaborado pelos autores")+
   scale_fill_brewer(palette="Set2")
 ```
 
 
 [^1]:[Acesse o Censo aqui](https://www.gov.br/inep/pt-br/areas-de-atuacao/pesquisas-estatisticas-e-indicadores/censo-da-educacao-superior)
+
+
+
+
+
+
+
+\section{Modelagem}
+Vamos ajustar uma regressão logistica  e floresta aleatória, temos como variável a ser predita se o estudante vai ser estar retido no curso, ou vai evadir, utiliza-se como covariáveis o sexo, nacionalidade e turno do estudante utiliza-se. Como observado na tabela  \@ref(tab:freqsit) tem-se que as observações nas categorias da variável resposta são muito desequilibradas, portanto a acurácia (accuracy) não será uma boa métrica para a escolha dos hiperparâmetros, assim escolhe-se a área da curva roc como métrica.
+
+
+```{r}
+set.seed(4)
+df=df %>% 
+  select(-id,-Mobilidade) %>% 
+  rename(Apoio=`Apoio social`,sit="Situação")
+df %>% 
+  filter(sit=="Retido") %>%   #opcional
+  group_by(sit) %>% 
+  slice_sample(n = 50000) %>% 
+  bind_rows(sit=.,df %>% filter(sit!="Retido"))
+ 
+```
+
+```{r mod}
+set.seed(4)
+df_split=initial_split(df,0.65,strata=sit)
+df_train=training(df_split)
+df_test=testing(df_split)
+df_vf=vfold_cv(df_train,10)
+df_boot=bootstraps(df_train,5)
+```
+
+
+
+```{r prp}
+df_rec1=
+  df_train %>% 
+  recipe(sit~.) %>% 
+   step_impute_mode(Mobilidade) %>% 
+    step_dummy(all_nominal_predictors())    #modelo com tudo
+
+df_rec2=df_train %>%
+  recipe(sit~Sexo+Nacionalidade+Turno) %>% 
+  step_dummy(all_nominal_predictors())
+
+df_rec3=
+  df_train %>%
+  recipe(sit~Sexo+Turno) %>% 
+  step_dummy(all_nominal_predictors())
+
+
+
+```
+
+```{r models}
+df_log= logistic_reg() %>% 
+  set_engine("glm")
+
+df_rf=rand_forest(trees=500,mtry = 1,min_n = 36) %>% 
+  set_mode("classification") %>% 
+  set_engine("ranger",importance = "impurity")
+
+
+
+
+```
+
+```{r work}
+df_work=workflow_set(list(si=df_rec2,t=df_rec3),
+                     list(logistic=df_log,rf=df_rf),cross=T)
+```
+
+```{r}
+set.seed(4)
+doParallel::registerDoParallel(cores=2)
+
+df_tuner=df_work %>% 
+  workflow_map("tune_grid",
+               resamples=df_boot,
+               grid=15,
+               metrics=metric_set(accuracy,roc_auc),verbose=T)
+
+
+rank_results(df_tuner,rank_metric = "roc_auc") %>% view()
+
+
+
+
+#Validação Cruzada
+ft1=df_work %>% 
+  extract_workflow("t_logistic") %>% 
+  fit_resamples(df_vf,metrics=metric_set(accuracy,roc_auc,sensitivity,specificity),
+                control = control_resamples(save_pred = TRUE)) %>% 
+  collect_predictions()
+
+ft2=df_work %>% 
+  extract_workflow("t_rf") %>% 
+  fit_resamples(df_vf,metrics=metric_set(accuracy,roc_auc,sensitivity,specificity),
+                control = control_resamples(save_pred = TRUE)) %>% 
+  collect_predictions()
+  
+autoplot(df_tuner)
+  
+
+```
+
+```{r}
+
+
+library(probably)
+p=function(ft,p)
+{  ft %>% 
+    mutate(.pred_class = make_two_class_pred(.pred_Retido, 
+                                             levels(ft$sit),
+                                             threshold = p),
+           .pred_class = factor(.pred_class, levels = levels(ft$sit)))
+}
+ 
+
+  
+```
+
+
+
+```{r}
+
+
+#melhores hiperparâmetros usando curva roc como métrica
+#brl=df_tuner %>% 
+  # extract_workflow_set_result(id='si_logistic') %>% 
+  #select_best(metric='roc_auc')
+#brf=df_tuner %>% 
+   #extract_workflow_set_result(id='si_rf') %>% 
+  #select_best(metric='roc_auc')
+
+ 
+
+
+fit2=df_tuner %>% 
+  extract_workflow(id='si_rf') %>% 
+  fit(df_train) 
+
+fit1=df_tuner %>% 
+  extract_workflow(id='si_logistic') %>% 
+  fit(df_train)
+ 
+
+
+fitt2=fit2 %>% 
+  fit(df_train) %>% 
+  predict(new_data = df_test, type = "prob") %>% 
+  bind_cols(df_test) %>%  
+  p(0.813) 
+  
+  #Importância das variáveis rf
+df_tuner %>% 
+  extract_workflow(id='si_rf') %>% 
+  fit(df_train) %>% 
+  extract_fit_parsnip() %>% 
+  vip::vip(num_features = 10)
+  
+
+
+
+fitt1=fit1 %>% 
+  predict(new_data = df_test, type = "prob") %>% 
+  bind_cols(df_test) %>% 
+  p(0.808) 
+
+
+
+#df_tuner %>% 
+ # extract_workflow(id='si_logistic') %>% 
+  #finalize_workflow(brl) %>% 
+  #fit(df_train) %>% 
+  #p(0.808)
+  #accuracy(sit,.pred_class)
+
+
+```
+
+
+\subsection{Regressão Logística}
+A regressão logistica foi necessário tomar como $0.808$ o ponto corte para a previsão ser da categória Retido, pois como já dito existem muitas observações para essa categoria. Ajustando no conjunto de treino obtem-se como única variáve não significativa a dummie Nacionalidade  Estrangeira que tem como p-valor associado `r tidy(fit1)[4,5]`
+
+
+
+
+
+Testando no conjunto de teste que possui `r nrow(df_test)` e deixando como padrão (0.5), a acurácia nos dados de teste é `r fitt1 %>% p(0.5) %>% accuracy(sit,.pred_class) %>% .[1,3]`, poderia-se cair em tentanção e dizer que é um bom modelo, mas vejamos a matriz de confusão:
+
+```{r}
+fitt1 %>% 
+  conf_table(0.5,"Matriz de Confusão com ponte de corte 0.5")
+
+```
+Todas as previsões foram Retido!!, ou seja o modelo está completamente viesado, e possui uma alta acurácia pois a maior parte dos estudantes permaneceu no curso. Então é necessário ajustarmos esse ponto de corte, por tuning_grid ficamos com $0.808$ , assim obtem-se area sobre a curva roc `r fitt1 %>% p(0.808) %>% roc_auc(sit,.pred_Retido) %>% .[1,3]`  e matriz de confusão
+
+```{r}
+fitt1 %>% 
+  conf_table(0.808,"Matriz de Confusão com ponte de corte 0.808")
+```
+```{r}
+tidy(fit1) %>% 
+  kbl()
+```
+
+
+
+ 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
