@@ -21,9 +21,12 @@ library('tidyverse')
 library('janitor')
 library('kableExtra')
 library('cowplot')
-library("tidymodels")
+library('tidymodels')
+library('epiR')
+library('DescTools')
 knitr::opts_chunk$set(echo=FALSE,message=F,warning=F,fig.pos = 'H',fig.align = 'center',fig.width=7.8, fig.height=4.85)
 options(digits=3)
+options(OutDec=",")
 theme_set(theme_minimal())
 scale_fill_discrete = \(...) scale_fill_brewer(... , palette="Set2")
 
@@ -131,6 +134,118 @@ conf_table=function(fit,p,tit){
 }
 
 ```
+```{r, associacao,include=F}
+Associar <-function(df,v1,tipo){
+  ## tipo = o -> v1 é ordinal
+  ## tipo = nd -> v1 é nominal dicotômica
+  ## tipo = np -> v1 é nominal politômica
+  df <- drop_na(df, {{v1}})
+  if(tipo == "nd"){
+    Qp <- df %>%
+    select({{v1}},Situação) %>%
+    table() %>%
+    stats::chisq.test(correct = F)
+    Asso <- df %>%
+      select({{v1}},Situação) %>%
+      table() %>%
+      epi.2by2(method = "cross.sectional")
+    lista <- list('Est' = Qp$statistic, 'p' = Qp$p.value,
+                  'RPrevalencia' = Asso$massoc.summary$est[1], 
+                  'RChance' = Asso$massoc.summary$est[2], 
+                  'ICPrevalencia' = c(Asso$massoc.summary$lower[1],
+                                      Asso$massoc.summary$upper[1]),
+                  'ICChance' = c(Asso$massoc.summary$lower[2],
+                                      Asso$massoc.summary$upper[2]))
+    return(lista)
+  }
+  
+  if(tipo == "np"){
+    Qp <- df %>%
+    select({{v1}},Situação) %>%
+    table() %>%
+    stats::chisq.test(correct = F)
+    lista <- list('Est' = Qp$statistic, 'p' = Qp$p.value)
+    return(lista)
+  }
+  
+  if(tipo == "o"){
+    y <- df %>% 
+    mutate(Situação=fct_recode(Situação,"0"="Retido","1"="Evadido")) %>%
+      select(Situação)
+    y1 <- ifelse(y == '1',1,0)
+    x <- df %>%
+      mutate(Idade=fct_recode(Idade,'1'="[15,20]", '2' = "(20,25]", '3' = "(25,30]", 
+                              '4' = "(30,65]", '5' = "(65,90]")) %>%
+      select(Idade)
+    x1 <- ifelse(x == '1',1, ifelse(x == '2', 2, ifelse(x == '3', 3, 
+                 ifelse(x == '4', 4,ifelse(x == '5',5,6)))))
+    rac<-cor(x1,y1)
+    n1<- length(y)
+    qcs<-(n1-1)*rac^2
+    p<-1-pchisq(qcs,1)  
+    lista <- list('Est' = qcs, 'p' = p, 'cor' = rac)
+    return(lista)
+  }
+    
+}
+
+Inter <- function(df,v1,vetor){
+  df <- drop_na(df, {{v1}})
+  a <- NULL
+  a <- as.data.frame(a)
+  for(i in vetor){
+    df1 <- subset(df, !is.na(eval(parse(text=i))))
+    d1 <- df1 %>% 
+      group_by(eval(parse(text=i))) %>%
+      summarise(no_rows = length(eval(parse(text=i)))) %>%
+      dim()%>%
+      .[1]
+    n <- df1 %>% 
+          select({{v1}}) %>%
+          colnames()
+    BDT <- table(eval(parse(text=paste('df1$',n, sep = ''))), df1$Situação, 
+          eval(parse(text=paste('df1$',i, sep = '')))) %>%
+          array(dim = c(2,2,d1)) %>%
+          BreslowDayTest()
+    j = 1
+    a[j,2] = BDT$p.value
+    a[j,1] = i
+    a[j,3] = BDT$statistic
+    BDT <- NULL
+    n <- NULL
+    d1 <- NULL
+    df1 <- NULL
+    j = j + 1
+  }
+  colnames(a) <- c('Var. Inter.', 'P', 'Est')
+  return(a)
+}
+```
+
+```{r teste_assoc, include = F}
+#th sit vs mob 
+#nominal dicotomica
+a<- Associar(df,Mobilidade,'nd')
+
+#th sit vs idade 
+#politomica ordinal
+b<-Associar(df,Idade,'o')
+
+#th sit vs turno
+#nominal politomica
+c<-Associar(df,Turno,'np')
+
+#th sit vs sexo
+d<-Associar(df,Sexo,'nd')
+
+#th sit vs Nacionalidade
+e<-Associar(df,Nacionalidade,'np')
+
+#th sit vs Apoio Social
+f<-Associar(df,`Apoio social`,'nd')
+
+
+```
 
 \section{Introdução}
 
@@ -151,7 +266,7 @@ Como variável de interesse tem-se a **Situação** do estudante, após o primei
 
 E por último a variável **Mobilidade** que foi criada pela junção do banco de dados dos alunos com o banco das Instituições de Ensino Superior, sendo esta uma variável categórica dicotômica para verificar se os alunos são do mesmo estado da universidade ou não.
 
-Adota-se como convenção a partir de agora que todas as observações referem-se ao ano 2019. Todas as tabelas e gráficos foram elaboradas pelos autores com base nas ``r nrow(df)`` observações do banco de dados, foram selecionadas ``r ncol(df)-1`` variáveis .
+Adota-se como convenção a partir de agora que todas as observações referem-se ao ano 2019. Todas as tabelas e gráficos foram elaboradas pelos autores com base nas `r nrow(df)` observações do banco de dados, foram selecionadas `r ncol(df)-1` variáveis .
 
 
 ```{r ead graphs,warning=FALSE,message=FALSE}
@@ -280,8 +395,13 @@ g_t(Mobilidade)+
 ```
 Nota-se que a partir da tabela \@ref(tab:freqmob) e da figura \@ref(fig:barmob), cerca de $82\%$ dos alunos ingressaram na universidade do seu estado de origem.
 
-\section{Tabelas de Contingência}
-Nesta seção, iremos visualizar através de tabelas e gráficos, a quantidade das observações das variáveis explicativas na variável de desfecho.
+\section{Estudo de Associação}
+A partir do estudo de frequência realizado pelo Estudo Descritivo, iremos construir tabelas, gráficos e testes para verificar a associação entre a variável de desfecho e as variáveis de interesse, com as seguintes hipóteses: 
+$$H_0: \mbox{Ausência de associação entre as variáveis}$$ versus a hipótese alternativa $$H_1: \mbox{Presença de associação}$$.
+
+\subsection{Tabelas de Contigência e Testes}
+Nesta seção, iremos verificar a relação entre as variáveis com a visualização das tabelas de contingência, gráfico e a análise dos testes qui-quadrado.
+
 
 **Turno vs Situação** 
 ```{r freqts,message=F,warning=F}
@@ -291,6 +411,8 @@ freq_table2(df,Turno,Situação,"Tabela de contingência com os valores absoluto
 g_t2(df,Turno,Situação)
 ```
 A  tabela \@ref(tab:freqts) e o gráfico \@ref(fig:grapht) expõem  que há prevalência dos alunos no curso de Psicologia em todos os turnos, sendo o noturno o turno com maior evasão em valores absolutos.
+
+Para o teste de associação, temos que a estatística de teste é igual a `r round(as.numeric(c$Est),3)`, com p-valor menor que 0.01, ou seja, rejeita-se H0 com todos os níveis de significância, assim há evidência de que há associação entre as variáveis.
 
 **Sexo vs Situação**
 ```{r freqss,message=F,warning=F}
@@ -302,6 +424,8 @@ g_t2(df,Sexo,Situação)
 ```
 A  tabela \@ref(tab:freqss) e o gráfico \@ref(fig:graphsex) evidenciam em valores absolutos que a maior parte dos ingressantes permanece no curso em ambos os sexos.
 
+Para o teste de associação, temos que a estatística de teste é igual a `r round((as.numeric(d$Est)),3)`, com p-valor menor que 0.01 , sendo assim, rejeitamos H0 a todos os níveis de significância, logo há evidência de que há associação entre as variáveis. Sendo uma tabela 2x2 podemos calcular a razão de prevalências que é: `r round(as.numeric(d$RPrevalencia),3)`, podemos confirmar com o no intervalo de confiança  [`r round(as.numeric(d$ICPrevalencia)[1],3)`;`r round(as.numeric(d$ICPrevalencia)[2],3)`], então podemos ver que 1 não está contido no intervalo, reforçando esta associação.
+
 **Nacionalidade vs Situação**
 ```{r freqsnac}
 freq_table2(df,Nacionalidade,Situação,"Tabela de contingência com os valores absolutos da variável Nacionalidade, considerando a variável de desfecho.")
@@ -312,7 +436,9 @@ g_t2(df,Nacionalidade,Situação)
 ```
 A  tabela \@ref(tab:freqsnac) e o gráfico \@ref(fig:graphnac) apresentam em valores absolutos que a minoria dos alunos não-brasileiros evadem.
 
-**Apoio Social e Situação**
+Para o teste de associação, temos que a estatística de teste é igual a `r round(as.numeric(e$Est),3)`, com p-valor menor que 0.01, ou seja, rejeita-se H0 com todos os níveis de significância, assim há evidência de que há associação entre as variáveis.
+
+**Apoio Social vs Situação**
 ```{r freqsapoio}
 freq_table2(df,`Apoio social`,Situação,"Tabela de contingência com os valores absolutos da variável Apoio social, considerando a variável de desfecho.")
 ```
@@ -322,7 +448,9 @@ g_t2(df,`Apoio social`,Situação)
 ```
 A  tabela \@ref(tab:freqsapoio) e o gráfico \@ref(fig:graphas) nos informa que evidentemente os estudantes que não possuem apoio social possuem maior retenção em valor absoluto (são $97\%$ dos ingressantes), mas veremos na próxima seção em termos relativos quanto é essa retenção.
 
-**Idade e Situação**
+Para o teste de associação, temos que a estatística de teste é igual a `r round((as.numeric(f$Est)),3)`, com p-valor menor que 0.01 , sendo assim, rejeitamos H0 a todos os níveis de significância, logo há evidência de que há associação entre as variáveis. Sendo uma tabela 2x2 podemos calcular a razão de prevalências que é: `r round(as.numeric(f$RPrevalencia),3)`, podemos confirmar com o no intervalo de confiança  [`r round(as.numeric(f$ICPrevalencia)[1],3)`;`r round(as.numeric(f$ICPrevalencia)[2],3)`], então podemos ver que 1 não está contido no intervalo, reforçando esta associação.
+
+**Idade vs Situação**
 ```{r}
 freq_table2(df,Idade,Situação,"Tabela de contingência com os valores absolutos da variável Idade, considerando a variável de desfecho.")
 ```
@@ -331,7 +459,10 @@ g_t2(df,Idade,Situação)
 ```
 Vemos que a faixa etária 15 a 20 anos possue maior retenção em valor absoluto, entretanto possui a maior quantidade de ingressantes, na proxima seção constataremos essa informação de forma mais detalhada.
 
-**Mobilidade e Situação**
+Para o teste de associação, temos que a estatística de teste é igual a `r as.numeric(b$Est)` com o p valor igual a `r as.numeric(b$p)`, ou seja, não há nenhuma evidência de associação entre Idade e Situação. A correlação é igual a `r round(as.numeric(b$cor),3)`, então a relação linear entre as duas variáveis é muito baixa.
+
+
+**Mobilidade vs Situação**
 ```{r freqsmob}
 df %>% 
   subset(!is.na(Mobilidade)) %>%
@@ -346,7 +477,9 @@ g_t2(Mobilidade,Situação)
 
 Percebe-se na tabela \@ref(tab:freqsmob) e no gráfico \@ref(fig:graphmob) uma enorme retenção em valores absolutos dos ingressantes que são do mesmo estado que a universidade.
 
-\section{Tabelas Marginais}
+Para o teste de associação, temos que a estatística de teste é igual a `r round((as.numeric(a$Est)),3)`, com p-valor menor que 0.01 , sendo assim, rejeitamos H0 a todos os níveis de significância, logo há evidência de que há associação entre as variáveis. Sendo uma tabela 2x2 podemos calcular a razão de prevalências que é: `r round(as.numeric(a$RPrevalencia),3)`, podemos confirmar com o no intervalo de confiança  [`r round(as.numeric(a$ICPrevalencia)[1],3)`;`r round(as.numeric(a$ICPrevalencia)[2],3)`], então podemos ver que 1 não está contido no intervalo, reforçando esta associação.
+
+\subsection{Tabelas Marginais}
 Nesta seção, iremos visualizar através de tabelas , o efeito marginal das variáveis explicativas na variável de
 desfecho
 
@@ -383,12 +516,6 @@ freq_table2(Mobilidade,Situação,"Proporção marginal da \"Mobilidade\" na Sit
 ```
 Para estudantes de origem do mesmo estado onde está localizada a universidade, há uma taxa de evasão relativamente menor em comparação com estudantes de origem de estados diferentes.
 
-
-
-
-
-
-
 ```{r,include=F}
 
 
@@ -406,105 +533,9 @@ Para estudantes de origem do mesmo estado onde está localizada a universidade, 
 
 [^1]:[Acesse o Censo aqui](https://www.gov.br/inep/pt-br/areas-de-atuacao/pesquisas-estatisticas-e-indicadores/censo-da-educacao-superior)
 
-\section{Parte do vitor}
-```{r}
-library(epiR)
-Associar <-function(df,v1,tipo){
-  ## tipo = o -> v1 é ordinal
-  ## tipo = nd -> v1 é nominal dicotômica
-  ## tipo = np -> v1 é nominal politômica
-  df <- drop_na(df, {{v1}})
-  if(tipo == "nd"){
-    Qp <- df %>%
-    select({{v1}},Situação) %>%
-    table() %>%
-    stats::chisq.test(correct = F)
-    Asso <- df %>%
-      select({{v1}},Situação) %>%
-      table() %>%
-      epi.2by2(method = "cross.sectional")
-    lista <- list('Est' = Qp$statistic, 'p' = Qp$p.value,
-                  'RPrevalencia' = Asso$massoc.summary$est[1], 
-                  'RChance' = Asso$massoc.summary$est[2], 
-                  'ICPrevalencia' = c(Asso$massoc.summary$lower[1],
-                                      Asso$massoc.summary$upper[1]),
-                  'ICChance' = c(Asso$massoc.summary$lower[2],
-                                      Asso$massoc.summary$upper[2]))
-    return(lista)
-  }
-  
-  if(tipo == "np"){
-    Qp <- df %>%
-    select({{v1}},Situação) %>%
-    table() %>%
-    stats::chisq.test(correct = F)
-    lista <- list('Est' = Qp$statistic, 'p' = Qp$p.value)
-    return(lista)
-  }
-  
-  if(tipo == "o"){
-    y <- df %>% 
-    mutate(Situação=fct_recode(Situação,"0"="Retido","1"="Evadido")) %>%
-      select(Situação)
-    y1 <- ifelse(y == '1',1,0)
-    x <- df %>%
-      mutate(Idade=fct_recode(Idade,'1'="[15,20]", '2' = "(20,25]", '3' = "(25,30]", 
-                              '4' = "(30,65]", '5' = "(65,90]")) %>%
-      select(Idade)
-    x1 <- ifelse(x == '1',1, ifelse(x == '2', 2, ifelse(x == '3', 3, 
-                 ifelse(x == '4', 4,ifelse(x == '5',5,6)))))
-    rac<-cor(x1,y1)
-    n1<- length(y)
-    qcs<-(n1-1)*rac^2
-    p<-1-pchisq(qcs,1)  
-    lista <- list('Est' = qcs, 'p' = p, 'cor' = rac)
-    return(lista)
-  }
-    
-}
-#th sit vs mob 
-#nominal dicotomica
-a<- Associar(df,Mobilidade,'nd')
-
-#th sit vs idade 
-#politomica ordinal
-b<-Associar(df,Idade,'o')
-
-
-
-#th sit vs turno
-#nominal politomica
-c<-Associar(df,Turno,'np')
-
-#th sit vs sexo
-d<-Associar(df,Sexo,'nd')
-
-#th sit vs Nacionalidade
-e<-Associar(df,Nacionalidade,'np')
-
-
-
-```
-Para testar a associação de interesse entre as variáveis é estabelecida as seguintes hipóteses: H0: ausência de associação e H1: presença de associação
-
-O teste de hipótese entre a variável **Situação** e a variável **Mobilidade**, temos que a estatística de teste é igual a `r as.numeric(a$Est)`, com p-valor igual a  `r as.numeric(a$p)` rejeitamos H0 ao nível de significância de $1\%$, logo há evidências de que há associação entre as variáveis, o que também pode ser observado no intervalo de confiança de prevalências `r as.numeric(a$ICPrevalencia)`, onde 1 não está contido no intervalo, reforçando esta associação.
-
-O teste de hipótese entre a variável **Situação** e a variável **Idade**, tem-se que a estatística de teste é igual a `r as.numeric(b$Est)` com o p valor igual a `r as.numeric(b$p)` a correlação é igual a `r as.numeric(b$cor)`, é possível concluir que conforme a classe de idades diminui, ou seja, os alunos mais novos, aumenta se a *chance* do aluno evadir.  n sei se posso dizer chance, ou nivel 
-
-Para o teste de hipótese entre a variável **Situação** e a variável **Turno**, temos que a estatística de teste é igual a `r as.numeric(c$Est)`, com p-valor igual a `r as.numeric(c$p)`, ou seja, rejeita-se H0 com todos os níveis de significância, assim há evidências de que há associação entre as variáveis.
-
-O teste de hipótese entre a variável **Situação** e a variável **Sexo**, temos que 
-a estatística de teste é igual a `r as.numeric(d$Est)`, com p-valor igual a  `r as.numeric(c$p)`, sendo assim, rejeitamos H0 a todos os níveis de significância, logo há evidências de que há associação entre as variáveis, o que também pode ser observado no intervalo de confiança de prevalências `r as.numeric(a$ICPrevalencia)`, onde 1 não está contido no intervalo, reforçando esta associação.
-
-O teste de hipótese entre a variável **Situação** e a variável **Nacionalidade**, temos que a estatística de teste é igual a `r as.numeric(e$Est)`, com p-valor igual a  `r as.numeric(e$p)` rejeitamos H0 a todos os níveis de significância usuais, logo há evidências de associação entre as variáveis.
-
-
-
-
-
 
 \section{Modelagem}
-Vamos ajustar uma regressão logistica  e floresta aleatória, temos como variável a ser predita se o estudante vai ser estar retido no curso, ou vai evadir, utiliza-se como covariáveis o sexo, nacionalidade e turno do estudante utiliza-se. Como observado na tabela  \@ref(tab:freqsit) tem-se que as observações nas categorias da variável resposta são muito desequilibradas, portanto a acurácia (accuracy) não será uma boa métrica para a escolha dos hiperparâmetros, assim escolhe-se a área da curva roc como métrica.
+Nesta seçao, iremos ajustar uma regressão logistica  e floresta aleatória, temos como variável a ser predita se o estudante vai ser estar retido no curso, ou vai evadir, utiliza-se como covariáveis o sexo, nacionalidade e turno do estudante utiliza-se. Como observado na tabela  \@ref(tab:freqsit) tem-se que as observações nas categorias da variável resposta são muito desequilibradas, portanto a acurácia (accuracy) não será uma boa métrica para a escolha dos hiperparâmetros, assim escolhe-se a área da curva roc como métrica.
 
 
 ```{r}
