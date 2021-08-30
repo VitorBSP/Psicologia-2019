@@ -11,10 +11,6 @@ editor_options:
   chunk_output_type: console
 ---
 
-```{r,comments,include=F}
-
-```
-
 ```{r setup,,include=F,}
 
 library('tidyverse')
@@ -189,28 +185,37 @@ Associar <-function(df,v1,tipo){
     
 }
 
+#Enviar para a função o banco (df), v1 é o X, vetor são os vetores de variáveis que queremos testar como interferente
 Inter <- function(df,v1,vetor){
+  #verificando se v1 tem NA
   df <- drop_na(df, {{v1}})
+  #Criando um data frame
   a <- NULL
   a <- as.data.frame(a)
   for(i in vetor){
+    #testando se as variaveis do vetor tem MA
     df1 <- subset(df, !is.na(eval(parse(text=i))))
+    #descobrindo o número de fatores da variavel do vetor
     d1 <- df1 %>% 
       group_by(eval(parse(text=i))) %>%
       summarise(no_rows = length(eval(parse(text=i)))) %>%
       dim()%>%
       .[1]
+    #nome da variavel
     n <- df1 %>% 
           select({{v1}}) %>%
           colnames()
+    #Fazendo o teste de BreslowDayTest
     BDT <- table(eval(parse(text=paste('df1$',n, sep = ''))), df1$Situação, 
           eval(parse(text=paste('df1$',i, sep = '')))) %>%
           array(dim = c(2,2,d1)) %>%
           BreslowDayTest()
     j = 1
+    #Setando os valores no DF
     a[j,2] = BDT$p.value
     a[j,1] = i
     a[j,3] = BDT$statistic
+    #Resetando as variaveis
     BDT <- NULL
     n <- NULL
     d1 <- NULL
@@ -218,6 +223,7 @@ Inter <- function(df,v1,vetor){
     j = j + 1
   }
   colnames(a) <- c('Var. Inter.', 'P', 'Est')
+  #retornando o dataframe
   return(a)
 }
 ```
