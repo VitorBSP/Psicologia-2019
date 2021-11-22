@@ -1,12 +1,13 @@
 ---
-title: "Psicologia"
+title: "Psicologia - Análise Descritiva"
 output: 
-  flexdashboard::flex_dashboard
+  flexdashboard::flex_dashboard:
+    logo: "libs/Git.png"
+    css: 'libs/custom.css'
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = F)
-library(shinydashboard)
 library(flexdashboard)
 library(brazilmaps)
 library(tidyverse)
@@ -21,7 +22,7 @@ gc()
 memory.limit (9999999999)
 rm(list=ls())
 gc()
-df=read_csv("ALUNO_PSICO2019.CSV")
+df=read_csv("../ALUNO_PSICO2019.CSV")
 df = df |> 
     mutate(NU_IDADE=as.integer(NU_IDADE),CO_IES= as.integer(CO_IES),
            Classe_Idade=cut(NU_IDADE,breaks=c(15,18,21,25,30,65,90),
@@ -48,7 +49,7 @@ df=df |>
                                        "Não"="0","Sim"="1"),
          Deficiência = fct_recode(Deficiência,"Não"= "0","Sim"="1", "Sem resposta"="9"))
 
-IES <- read_delim('IES.CSV',delim=",")
+IES <- read_delim('../IES.CSV',delim=",")
 IES = IES |>
   rename(Codigo = CO_IES)
 attach(IES)
@@ -138,30 +139,70 @@ row.names(df3) <- df3$CO_UF
 df3 <- df3 |>
 arrange(CO_UF)
 
-Latitude1<- c(-60.11427458,-40.11427458,-45.11427458,
-              -52.11427458, -55.11427458)
-Longitude1<- c(-2.19830591,-5.99999000,-20.99999000,
-               -26.99999000, -14.09999000)
-Latitude2<- c(-61.5414,-70.4836,-65.0130, -61.4024, -51.3016, -52.0359, 
-              -48.2137,
-              -45.1810, -42.4807, -40.3235, -33.5, -33.5, -33.5, 
-              -33.5, -35.0414, -40.3039,
-              -43.5616, -40.2016, -43.1227,-47.3810,
-              -52.1623, -50.3257, -52.1348,
-              -54.3847, -56.0548, -50.1514, -47.5547)
-Longitude2<- c(-12.4543,-9.5829,-03.0607,2.4911, -5.2721, 1.50, -10.1216,
-               -3.3147, -8.0621, -04.4302, -05.5, -07,-08.5,
-               -9.7, -11.1410, -12.5816,
-               -19.6515,-20.1910, -22.5410, -23.3251,
-               -25.2540, -27.3548, -30.0159, 
-               -20.2634, -12.3546, -16.4043, -15.4647)
 ```
-
 
 # Variáveis dicotômicas
 
 Row {.tabset}
 -----------------------------------------------------------------------
+
+### Deficiência x situação
+
+```{r}
+g4 <- df |> 
+  subset(Deficiência != "Sem resposta") |>
+  grafico(Deficiência,Situação)
+  ggplotly(g4)
+```
+
+### Proporcionalidade
+
+```{r}
+
+g5 <- df |> 
+  subset(Deficiência != "Sem resposta") |>
+  ggplot(aes(Situação, fill=Situação)) + 
+  geom_bar()+
+  scale_fill_brewer(palette = "Set2")+
+  theme(
+     panel.grid.major.x = element_blank(),
+     panel.grid.minor.x = element_blank(), legend.position="none") +
+  facet_wrap(~Deficiência, ncol = 1, scales="free_y") +
+    labs(x=df|>
+         select(Situação) |> 
+         names(), y='Quantidade de alunos')
+ggplotly(g5)
+```
+
+### Reserva de Vagas x Situação
+
+```{r}
+g3 <- df |>
+grafico(`Reserva de Vagas`,Situação)
+ggplotly(g3)
+```
+
+### Proporcionalidade
+
+```{r}
+
+g6 <- df |> 
+  ggplot(aes(Situação, fill=Situação)) + 
+  geom_bar()+
+  scale_fill_brewer(palette = "Set2")+
+  theme(
+     panel.grid.major.x = element_blank(),
+     panel.grid.minor.x = element_blank(), legend.position="none") +
+  facet_wrap(~`Reserva de Vagas`, ncol = 1, scales="free_y") +
+    labs(x=df|>
+         select(Situação) |> 
+         names(), y='Quantidade de alunos')
+ggplotly(g6)
+```
+
+Row {.tabset}
+-----------------------------------------------------------------------
+
 ### Sexo x Situação
 
 ```{r}
@@ -179,8 +220,6 @@ ggplotly(g11)
 
 ```
 
-Row {.tabset}
------------------------------------------------------------------------
 ### Apoio Social x Situação 
 
 ```{r}
@@ -189,29 +228,78 @@ grafico(`Apoio social`,Situação)
 ggplotly(g2)
 ```
 
-### Reserva de Vagas x Situação
+
+# Variáveis Politômicas
+Row {.tabset}
+-----------------------------------------------------------------------
+
+### Turno x Situação
 
 ```{r}
-g3 <- df |>
-grafico(`Reserva de Vagas`,Situação)
-ggplotly(g3)
+g7 <- df |>
+grafico(Turno,Situação)
+ggplotly(g7)
 ```
 
-### Deficiência x situação
 
-```{r}
-g4 <- df |> 
-  subset(Deficiência != "Sem resposta") |>
-  grafico(Deficiência,Situação)
-  ggplotly(g4)
-```
-
-# Variáveis com noção de proporcionalidade
 
 Row {.tabset}
 -----------------------------------------------------------------------
 
-### Situação em função das regiões
+### Situação x Idade classificadas
+
+```{r}
+g9 <- df |>
+grafico(Classe_Idade,Situação)
+ggplotly(g9)
+```
+
+### Histograma de Situação x Idade
+
+```{r}
+g8 <- df |>
+  ggplot(aes(x=as.double(Idade), fill=Situação)) +
+  geom_histogram(binwidth=5) +  
+  scale_fill_brewer(palette = "Set2")+
+  theme(
+     panel.grid.major.x = element_blank(),
+     panel.grid.minor.x = element_blank()) +
+    labs(y='Quantidade de alunos', x = 'Idade')
+ggplotly(g8)
+```
+
+
+### Boxplot Situação x Idade
+
+```{r}
+g10 <- df |>
+  ggplot(aes(x=Situação, y=Idade, fill = Situação)) +
+  geom_boxplot() +
+    scale_fill_brewer(palette = "Set2") +
+  theme(
+     panel.grid.major.x = element_blank(),
+     panel.grid.minor.x = element_blank(), legend.position="none",
+     axis.text.y=element_blank(),axis.ticks=element_blank()) +
+  labs(x='Situação', y='Idade') 
+ggplotly(g10)
+```
+
+
+# Variáveis Territoriais 
+
+Row {.tabset}
+-----------------------------------------------------------------------
+
+### Região x Situação
+
+```{r}
+g13 <- df |>
+  mutate(Região = Região |> fct_infreq()) |> 
+grafico(Região,Situação)
+ggplotly(g13)
+```
+
+### Proporcionalidade
 
 ```{r}
 g12 <- df |> 
@@ -228,7 +316,22 @@ g12 <- df |>
 ggplotly(g12)
 ```
 
-### Situação em função dos Estados - Norte
+
+
+Row {.tabset}
+-----------------------------------------------------------------------
+
+### UF x Situação
+
+```{r}
+g15 <- df |>
+    mutate(UF = UF |> fct_infreq() |> fct_rev()) |>
+    grafico(UF,Situação)
+g15 <- g15 + coord_flip() 
+ggplotly(g15)
+```
+
+### Proporcionalidade - Norte
 
 
 ```{r}
@@ -312,125 +415,6 @@ g19 <- df |>
 ggplotly(g19)
 ```
 
-Row {.tabset}
------------------------------------------------------------------------
-
-### Situação em função da deficiência
-
-```{r}
-
-g5 <- df |> 
-  subset(Deficiência != "Sem resposta") |>
-  ggplot(aes(Situação, fill=Situação)) + 
-  geom_bar()+
-  scale_fill_brewer(palette = "Set2")+
-  theme(
-     panel.grid.major.x = element_blank(),
-     panel.grid.minor.x = element_blank(), legend.position="none") +
-  facet_wrap(~Deficiência, ncol = 1, scales="free_y") +
-    labs(x=df|>
-         select(Situação) |> 
-         names(), y='Quantidade de alunos')
-ggplotly(g5)
-```
-
-### Situação em função da Reserva de Vagas
-
-```{r}
-
-g6 <- df |> 
-  ggplot(aes(Situação, fill=Situação)) + 
-  geom_bar()+
-  scale_fill_brewer(palette = "Set2")+
-  theme(
-     panel.grid.major.x = element_blank(),
-     panel.grid.minor.x = element_blank(), legend.position="none") +
-  facet_wrap(~`Reserva de Vagas`, ncol = 1, scales="free_y") +
-    labs(x=df|>
-         select(Situação) |> 
-         names(), y='Quantidade de alunos')
-ggplotly(g6)
-```
-
-
-# Variáveis politômicas nominal
-
-Column {data-width=500}
--------------------------------------
-
-### Turno x Situação
-
-```{r}
-g7 <- df |>
-grafico(Turno,Situação)
-ggplotly(g7)
-```
-
-Row {.tabset}
------------------------------------------------------------------------
-
-### Região x Situação
-
-```{r}
-g13 <- df |>
-  mutate(Região = Região |> fct_infreq()) |> 
-grafico(Região,Situação)
-ggplotly(g13)
-```
-
-### UF x Situação
-
-```{r}
-g15 <- df |>
-    mutate(UF = UF |> fct_infreq() |> fct_rev()) |>
-    grafico(UF,Situação)
-g15 <- g15 + coord_flip() 
-ggplotly(g15)
-```
-
-# Variáveis politômica ordinal
-
-Row {.tabset}
------------------------------------------------------------------------
-### Histograma de Situação x Idade
-
-```{r}
-g8 <- df |>
-  ggplot(aes(x=as.double(Idade), fill=Situação)) +
-  geom_histogram(binwidth=5) +  
-  scale_fill_brewer(palette = "Set2")+
-  theme(
-     panel.grid.major.x = element_blank(),
-     panel.grid.minor.x = element_blank()) +
-    labs(y='Quantidade de alunos', x = 'Idade')
-ggplotly(g8)
-```
-
-### Situação x Idade classificadas
-
-```{r}
-g9 <- df |>
-grafico(Classe_Idade,Situação)
-ggplotly(g9)
-```
-
-Column {data-width=500}
--------------------------------------
-
-### Boxplot Situação x Idade
-
-```{r}
-g10 <- df |>
-  ggplot(aes(x=Situação, y=Idade, fill = Situação)) +
-  geom_boxplot() +
-    scale_fill_brewer(palette = "Set2") +
-  theme(
-     panel.grid.major.x = element_blank(),
-     panel.grid.minor.x = element_blank(), legend.position="none",
-     axis.text.y=element_blank(),axis.ticks=element_blank()) +
-  labs(x='Situação', y='Idade') 
-ggplotly(g10)
-```
 
 # Mapas
 Row {.tabset}
@@ -439,73 +423,96 @@ Row {.tabset}
 ### Quantidade de alunos por Região
 
 ```{r}
-mapa1<- get_brmap(geo = "Region")
-mapa1<- plot_brmap(mapa1, data_to_join = df2, 
-                  join_by = c("Region" = "CO_REGIAO"),
-                  var = "n")
-mapa1 <- mapa1 + scale_fill_continuous(low = "white", high = "#CB454A", 
-                        name = "Quantidade de alunos", 
-                        label = scales::comma, breaks=c(4754,19529,52550))+
-  geom_text(aes(Latitude1, Longitude1, label = df2$Região),
-            data = df2,  size = 3)
-ggplotly(mapa1)
+df5<-df2[order(as.character(df2$Região)),]
+
+regions <- geojsonio::geojson_read("libs/grandes_regioes_json.geojson", what = "sp")
+regions$n <- df5$n
+regions$Percento <- df5$EvasãoPercentual
+bins <- c(1000, 5000, 10000, 15000, 20000, 40000, 60000)
+pal <- colorBin("YlOrRd", domain = regions@data[["n"]], bins = bins)
+a <- '%'
+link <- 'https://pt.wikipedia.org/wiki/'
+labels <- sprintf(
+  "<strong>%s</strong><br/>%d alunos<br/> %g%s de Evasão", 
+regions@data[["NOME1"]],regions@data[["n"]], regions@data[["Percento"]], a) %>% 
+  lapply(htmltools::HTML)
+
+
+leaflet(regions) %>%
+  setView(-47.93, -15.78, 3.2) %>%
+  addTiles() %>% 
+  addPolygons(fillColor = ~pal(regions@data[["n"]]),
+              weight = 2,
+              opacity = 1,
+              color = "white",
+              dashArray = "3",
+              fillOpacity = 0.7, 
+              highlight = highlightOptions(weight = 5,
+                                           color = "#666",
+                                           dashArray = "",
+                                           fillOpacity = 0.7,
+                                           bringToFront = TRUE),
+              label = labels,
+              labelOptions = labelOptions(style = list("font-weight" = "normal", padding = "3px 8px"),
+                                          textsize = "15px",
+                                          direction = "auto"), popup = ~paste0( "Região:"
+                 , regions@data[["NOME1"]]
+                 , "<br>"
+                 , "<a href='"
+                 , link,regions@data[["NOME1"]]
+                 , "' target='_blank'>"
+                 , "Clique aqui</a>" )) %>%
+  addLegend(pal = pal, values = ~regions@data[["n"]], opacity = 0.7, 
+            title = "Número de alunos", position = "bottomright")
 ```
 
-### Porcentagem de evasão por Região
+### Evasão em % por Região
+
 
 ```{r}
 
-mapa2<- get_brmap(geo = "Region")
-mapa2<- plot_brmap(mapa2, data_to_join = df2, 
-                  join_by = c("Region" = "CO_REGIAO"),
-                  var = "EvasãoPercentual")
-mapa2 <- mapa2 + scale_fill_continuous(low = "#EFFF01", high = "#FC2601", 
-                        name = "Evasão %", 
-                        label = scales::comma, breaks=c(10.45,15,19.81)) +
-  geom_text(aes(Latitude1, Longitude1, label = df2$Região),
-            data = df2,  size = 3)
-ggplotly(mapa2)
+bins <- c(10, 12, 15, 18, 20)
+pal <- colorBin("YlOrRd", domain = regions@data[["Percento"]], bins = bins)
+
+
+leaflet(regions) %>%
+  setView(-47.93, -15.78, 3.2) %>%
+  addTiles() %>% 
+  addPolygons(fillColor = ~pal(regions@data[["Percento"]]),
+              weight = 2,
+              opacity = 1,
+              color = "white",
+              dashArray = "3",
+              fillOpacity = 0.7, 
+              highlight = highlightOptions(weight = 5,
+                                           color = "#666",
+                                           dashArray = "",
+                                           fillOpacity = 0.7,
+                                           bringToFront = TRUE),
+              label = labels,
+              labelOptions = labelOptions(style = list("font-weight" = "normal", padding = "3px 8px"),
+                                          textsize = "15px",
+                                          direction = "auto"), popup = ~paste0( "Região:"
+                 , regions@data[["NOME1"]]
+                 , "<br>"
+                 , "<a href='"
+                 , link,regions@data[["NOME1"]]
+                 , "' target='_blank'>"
+                 , "Clique aqui</a>" )) %>%
+  addLegend(pal = pal, values = ~regions@data[["Percento"]], opacity = 0.7, 
+            title = "Evasão", position = "bottomright", labFormat = labelFormat(suffix = "%", between="% &ndash; "))
+
 ```
+
 Row {.tabset}
 -----------------------------------------------------------------------
+
 ### Quantidade de alunos por UF
 
 ```{r}
-mapa3<- get_brmap(geo = "State")
-mapa3<- plot_brmap(mapa3, data_to_join = df3, 
-                  join_by = c("State" = "CO_UF"),
-                  var = "n")
-mapa3 <- mapa3 + scale_fill_gradient(low = "white", high = "#CB454A", 
-                        name = "Quantidade de alunos", 
-                        label = scales::comma, 
-                        breaks=c(111,4782,9463, 32364)) +
-    geom_text(aes(Latitude2, Longitude2, label = df3$UF1),data = df3,  
-              size = 3)
-ggplotly(mapa3)
-```
-### Porcentagem de evasão por UF
-
-```{r}
-mapa4<- get_brmap(geo = "State")
-mapa4<- plot_brmap(mapa4, data_to_join = df3, 
-                  join_by = c("State" = "CO_UF"),
-                  var = "EvasãoPercentual")
-mapa4 <- mapa4 + scale_fill_gradient(low = "#EFFF01", high = "#FC2601", 
-                        name = "Evasão %", 
-                        label = scales::comma, breaks=c(1.8,5,10,15,20,
-                                                        25,30,35)) +
-    geom_text(aes(Latitude2, Longitude2, label = df3$UF1),data = df3,  
-              size = 3)
-ggplotly(mapa4)
-```
-
-Row {.tabset}
------------------------------------------------------------------------
-#Mapas 2
-```{r}
 df4<-df3[order(as.character(df3$UF)),]
 
-states <- geojsonio::geojson_read("brazil_geo.json", what = "sp")
+states <- geojsonio::geojson_read("libs/brazil_geo.json", what = "sp")
 states$n <- df4$n
 states$Percento <- df4$EvasãoPercentual
 a <- '%'
@@ -549,6 +556,9 @@ leaflet(states) %>%
 
 ```
 
+### Evasão de % por UF
+
+
 ```{r}
 
 bins <- c(1, 5, 7, 13, 18, 21, 24, 27, 36)
@@ -584,86 +594,6 @@ leaflet(states) %>%
 
 ```
 
-Row {.tabset}
------------------------------------------------------------------------
-```{r}
-df5<-df2[order(as.character(df2$Região)),]
-
-regions <- geojsonio::geojson_read("grandes_regioes_json.geojson", what = "sp")
-regions$n <- df5$n
-regions$Percento <- df5$EvasãoPercentual
-bins <- c(1000, 5000, 10000, 15000, 20000, 40000, 60000)
-pal <- colorBin("YlOrRd", domain = regions@data[["n"]], bins = bins)
-
-
-labels <- sprintf(
-  "<strong>%s</strong><br/>%d alunos<br/> %g%s de Evasão", 
-regions@data[["NOME1"]],regions@data[["n"]], regions@data[["Percento"]], a) %>% 
-  lapply(htmltools::HTML)
-
-
-leaflet(regions) %>%
-  setView(-47.93, -15.78, 3.2) %>%
-  addTiles() %>% 
-  addPolygons(fillColor = ~pal(regions@data[["n"]]),
-              weight = 2,
-              opacity = 1,
-              color = "white",
-              dashArray = "3",
-              fillOpacity = 0.7, 
-              highlight = highlightOptions(weight = 5,
-                                           color = "#666",
-                                           dashArray = "",
-                                           fillOpacity = 0.7,
-                                           bringToFront = TRUE),
-              label = labels,
-              labelOptions = labelOptions(style = list("font-weight" = "normal", padding = "3px 8px"),
-                                          textsize = "15px",
-                                          direction = "auto"), popup = ~paste0( "Região:"
-                 , regions@data[["NOME1"]]
-                 , "<br>"
-                 , "<a href='"
-                 , link,regions@data[["NOME1"]]
-                 , "' target='_blank'>"
-                 , "Clique aqui</a>" )) %>%
-  addLegend(pal = pal, values = ~regions@data[["n"]], opacity = 0.7, 
-            title = "Número de alunos", position = "bottomright")
-```
-
-```{r}
-
-bins <- c(10, 12, 15, 18, 20)
-pal <- colorBin("YlOrRd", domain = regions@data[["Percento"]], bins = bins)
-
-
-leaflet(regions) %>%
-  setView(-47.93, -15.78, 3.2) %>%
-  addTiles() %>% 
-  addPolygons(fillColor = ~pal(regions@data[["Percento"]]),
-              weight = 2,
-              opacity = 1,
-              color = "white",
-              dashArray = "3",
-              fillOpacity = 0.7, 
-              highlight = highlightOptions(weight = 5,
-                                           color = "#666",
-                                           dashArray = "",
-                                           fillOpacity = 0.7,
-                                           bringToFront = TRUE),
-              label = labels,
-              labelOptions = labelOptions(style = list("font-weight" = "normal", padding = "3px 8px"),
-                                          textsize = "15px",
-                                          direction = "auto"), popup = ~paste0( "Região:"
-                 , regions@data[["NOME1"]]
-                 , "<br>"
-                 , "<a href='"
-                 , link,regions@data[["NOME1"]]
-                 , "' target='_blank'>"
-                 , "Clique aqui</a>" )) %>%
-  addLegend(pal = pal, values = ~regions@data[["Percento"]], opacity = 0.7, 
-            title = "Evasão", position = "bottomright", labFormat = labelFormat(suffix = "%", between="% &ndash; "))
-
-```
 
 # Sobre o estudo
 
@@ -690,12 +620,3 @@ kable(df[0:10,c(2:8,10,16:17)]) |>
   kable_styling(c('striped'))
 ```
 
-# Menu B
-
-## Page 3 {data-navmenu="Menu B"}
-
-=====================================
-
-## Page 4 {data-navmenu="Menu B"}
-
-=====================================

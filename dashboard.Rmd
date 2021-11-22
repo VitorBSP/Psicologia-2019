@@ -364,6 +364,7 @@ Column {data-width=500}
 g7 <- df |>
 grafico(Turno,Situação)
 ggplotly(g7)
+
 ```
 
 Row {.tabset}
@@ -505,7 +506,7 @@ Row {.tabset}
 ```{r}
 df4<-df3[order(as.character(df3$UF)),]
 
-states <- geojsonio::geojson_read("brazil_geo.json", what = "sp")
+states <- geojsonio::geojson_read("docs/libs/brazil_geo.json", what = "sp")
 states$n <- df4$n
 states$Percento <- df4$EvasãoPercentual
 a <- '%'
@@ -589,7 +590,7 @@ Row {.tabset}
 ```{r}
 df5<-df2[order(as.character(df2$Região)),]
 
-regions <- geojsonio::geojson_read("grandes_regioes_json.geojson", what = "sp")
+regions <- geojsonio::geojson_read("docs/libs/grandes_regioes_json.geojson", what = "sp")
 regions$n <- df5$n
 regions$Percento <- df5$EvasãoPercentual
 bins <- c(1000, 5000, 10000, 15000, 20000, 40000, 60000)
