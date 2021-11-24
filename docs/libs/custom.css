@@ -1,4 +1,4 @@
-.navbar, [data-toggle=tab], .navbar-brand  {   background-color:#75002B;   border-color:black;   color:white; }
+.navbar, [data-toggle=tab], .navbar-brand  {color:white; }
 
 .navbar-logo img {
     position: absolute;

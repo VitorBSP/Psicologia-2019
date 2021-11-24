@@ -4,9 +4,18 @@ output:
   flexdashboard::flex_dashboard:
     logo: "libs/Git.png"
     css: 'libs/custom.css'
+    favicon: 'libs/Psico.jpg'
+    theme:
+      version: 4
+      primary: "#75002B"
+      navbar-bg: "#75002B"
 ---
 
-```{r setup, include=FALSE}
+<script>
+$('.navbar-logo').wrap('<a href="https://github.com/AlissonRP/Psicologia-2019">');
+</script>
+
+```{r setup, include=FALSE, context = "server"}
 knitr::opts_chunk$set(echo = F)
 library(flexdashboard)
 library(brazilmaps)
@@ -18,6 +27,8 @@ library(kableExtra)
 library(Rcpp)
 library(geojsonio)
 library(leaflet)
+theme_set(theme_minimal())
+scale_fill_discrete = \(...) scale_fill_brewer(... , palette="Set2")
 gc()
 memory.limit (9999999999)
 rm(list=ls())
@@ -104,6 +115,7 @@ df |>
          select({{v1}}) |> 
          names(), y='Quantidade de alunos')
 }
+
 ```
 
 ```{r}
@@ -602,8 +614,6 @@ Inputs {.sidebar}
 **Autores:**
 Alisson, Caroline e Vítor
 
-**Matrículas:**
-201812317,201810217 & 201810422
 
 **E-mail's:**
 alirpereira887@gmail.com, carolcogo808@gmail.com & vitorpereira3115@gmail.com

@@ -6,7 +6,6 @@ output:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = F)
-library(shinydashboard)
 library(flexdashboard)
 library(brazilmaps)
 library(tidyverse)
@@ -17,6 +16,8 @@ library(kableExtra)
 library(Rcpp)
 library(geojsonio)
 library(leaflet)
+theme_set(theme_minimal())
+scale_fill_discrete = \(...) scale_fill_brewer(... , palette="Set2")
 gc()
 memory.limit (9999999999)
 rm(list=ls())
