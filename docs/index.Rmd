@@ -33,7 +33,7 @@ gc()
 memory.limit (9999999999)
 rm(list=ls())
 gc()
-df=read_csv("../ALUNO_PSICO2019.CSV")
+df=read_csv("https://raw.githubusercontent.com/AlissonRP/Psicologia-2019/master/ALUNO_PSICO2019.csv")
 df = df |> 
     mutate(NU_IDADE=as.integer(NU_IDADE),CO_IES= as.integer(CO_IES),
            Classe_Idade=cut(NU_IDADE,breaks=c(15,18,21,25,30,65,90),
